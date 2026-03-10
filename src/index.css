@@ -1,0 +1,16 @@
+@import url('https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.3.0/css/flag-icon.min.css');
+
+@import 'admin-lte/plugins/fontawesome-free/css/all.min.css';
+@import 'admin-lte/plugins/icheck-bootstrap/icheck-bootstrap.min.css';
+@import 'admin-lte/dist/css/adminlte.min.css';
+
+@import 'react-toastify/dist/ReactToastify.min.css';
+
+/* Modern PyHSS Theme — loaded last to override AdminLTE */
+@import './theme.css';
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}

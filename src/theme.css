@@ -1,0 +1,1020 @@
+/* ============================================================
+   PyHSS Modern Theme — Dark Telecom Industrial
+   Replaces AdminLTE defaults with a sharp, professional UI
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+
+/* ─── Design Tokens ─────────────────────────────────────── */
+:root {
+  --bg-base:        #0a0e14;
+  --bg-surface:     #0f1520;
+  --bg-elevated:    #141d2b;
+  --bg-card:        #18213a;
+  --bg-hover:       #1e2a3f;
+  --border:         #1e2d45;
+  --border-bright:  #2a3f5c;
+
+  --accent:         #00c8ff;
+  --accent-dim:     rgba(0, 200, 255, 0.12);
+  --accent-glow:    rgba(0, 200, 255, 0.35);
+  --accent-green:   #00e676;
+  --accent-amber:   #ffc107;
+  --accent-red:     #ff4757;
+
+  --text-primary:   #e8f0fe;
+  --text-secondary: #7a93b8;
+  --text-muted:     #3d5273;
+
+  --font-ui:        'Inter', sans-serif;
+  --font-display:   'Syne', sans-serif;
+  --font-mono:      'IBM Plex Mono', monospace;
+
+  --radius-sm:      4px;
+  --radius:         8px;
+  --radius-lg:      12px;
+
+  --shadow-card:    0 4px 24px rgba(0,0,0,0.4);
+  --shadow-elevated:0 8px 40px rgba(0,0,0,0.6);
+  --transition:     0.18s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ─── Light Mode Token Overrides ────────────────────────── */
+body.light-mode {
+  --bg-base:        #f0f4f8;
+  --bg-surface:     #ffffff;
+  --bg-elevated:    #f8fafc;
+  --bg-card:        #ffffff;
+  --bg-hover:       #e8f0fe;
+  --border:         #d0dae8;
+  --border-bright:  #b0c4de;
+
+  --accent:         #0084a8;
+  --accent-dim:     rgba(0, 132, 168, 0.10);
+  --accent-glow:    rgba(0, 132, 168, 0.25);
+  --accent-green:   #00875a;
+  --accent-amber:   #b45309;
+  --accent-red:     #dc2626;
+
+  --text-primary:   #0f1d2e;
+  --text-secondary: #3a5068;
+  --text-muted:     #8098b0;
+
+  --shadow-card:    0 2px 12px rgba(0,0,0,0.08);
+  --shadow-elevated:0 4px 24px rgba(0,0,0,0.12);
+}
+
+/* ─── Global Reset ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg-base) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── AdminLTE Wrapper Override ──────────────────────────── */
+.wrapper {
+  background: var(--bg-base) !important;
+  min-height: 100vh;
+}
+
+/* ─── SIDEBAR ────────────────────────────────────────────── */
+.main-sidebar {
+  background: var(--bg-surface) !important;
+  border-right: 1px solid var(--border) !important;
+  width: 240px !important;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.4) !important;
+}
+
+.brand-link {
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 14px 16px !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none !important;
+}
+
+.brand-text {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  font-size: 16px !important;
+  color: var(--accent) !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Sidebar nav */
+.sidebar {
+  padding: 12px 0 !important;
+  overflow-x: hidden;
+}
+
+.nav-sidebar .nav-item {
+  margin: 2px 8px !important;
+}
+
+.nav-sidebar .nav-link {
+  border-radius: var(--radius) !important;
+  padding: 9px 12px !important;
+  color: var(--text-secondary) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all var(--transition) !important;
+  border: 1px solid transparent !important;
+}
+
+.nav-sidebar .nav-link:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+
+.nav-sidebar .nav-link.active,
+.nav-sidebar .nav-item > .nav-link.active {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+  border-color: rgba(0,200,255,0.25) !important;
+  box-shadow: 0 0 0 1px rgba(0,200,255,0.1) inset !important;
+}
+
+.nav-sidebar .nav-link .nav-icon {
+  color: inherit !important;
+  font-size: 14px !important;
+  width: 18px !important;
+  text-align: center;
+}
+
+/* Tree view (submenu) */
+.nav-treeview {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.nav-treeview .nav-item {
+  margin: 1px 0 1px 12px !important;
+}
+
+.nav-treeview .nav-link {
+  font-size: 12px !important;
+  padding: 7px 10px !important;
+}
+
+/* Section headers in sidebar */
+.nav-sidebar .nav-header {
+  color: var(--text-muted) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 16px 20px 6px !important;
+}
+
+/* ─── HEADER / NAVBAR ────────────────────────────────────── */
+.main-header {
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.3) !important;
+  height: 56px !important;
+  z-index: 1030 !important;
+}
+
+.main-header .navbar-nav .nav-link,
+.main-header .navbar-nav .nav-item button.nav-link {
+  color: var(--text-secondary) !important;
+  padding: 8px 10px !important;
+  border-radius: var(--radius-sm) !important;
+  transition: all var(--transition) !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer;
+}
+
+.main-header .navbar-nav .nav-link:hover,
+.main-header .navbar-nav .nav-item button.nav-link:hover {
+  color: var(--accent) !important;
+  background: var(--accent-dim) !important;
+}
+
+/* ─── CONTENT AREA ───────────────────────────────────────── */
+.content-wrapper {
+  background: var(--bg-base) !important;
+  margin-left: 240px !important;
+  min-height: calc(100vh - 56px - 48px) !important;
+}
+
+.content-header {
+  padding: 20px 24px 8px !important;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0 !important;
+}
+
+.content-header h1 {
+  font-family: var(--font-display) !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  margin: 0 !important;
+  letter-spacing: -0.02em;
+}
+
+.breadcrumb {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.breadcrumb-item a {
+  color: var(--text-muted) !important;
+  font-size: 12px !important;
+  text-decoration: none !important;
+  transition: color var(--transition);
+}
+
+.breadcrumb-item a:hover { color: var(--accent) !important; }
+
+.breadcrumb-item.active {
+  color: var(--accent) !important;
+  font-size: 12px !important;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  color: var(--text-muted) !important;
+  content: "/" !important;
+}
+
+.content { padding: 20px 24px !important; }
+
+/* ─── CARDS ─────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card) !important;
+  margin-bottom: 20px !important;
+  overflow: hidden;
+}
+
+.card-header {
+  background: var(--bg-elevated) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 14px 20px !important;
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  color: var(--text-primary) !important;
+}
+
+.card-body { padding: 20px !important; }
+
+/* ─── STAT BOXES (Dashboard) ─────────────────────────────── */
+.small-box {
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--border) !important;
+  background: var(--bg-card) !important;
+  box-shadow: var(--shadow-card) !important;
+  overflow: hidden;
+  position: relative;
+  transition: all var(--transition) !important;
+}
+
+.small-box:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated) !important;
+  border-color: var(--border-bright) !important;
+}
+
+.small-box.bg-success {
+  background: linear-gradient(135deg, #0d2218 0%, var(--bg-card) 60%) !important;
+  border-left: 3px solid var(--accent-green) !important;
+}
+
+.small-box.bg-warning {
+  background: linear-gradient(135deg, #231a08 0%, var(--bg-card) 60%) !important;
+  border-left: 3px solid var(--accent-amber) !important;
+}
+
+.small-box.bg-danger {
+  background: linear-gradient(135deg, #1f0a0e 0%, var(--bg-card) 60%) !important;
+  border-left: 3px solid var(--accent-red) !important;
+}
+
+.small-box.bg-info {
+  background: linear-gradient(135deg, #051820 0%, var(--bg-card) 60%) !important;
+  border-left: 3px solid var(--accent) !important;
+}
+
+.small-box .inner {
+  padding: 20px 20px 12px !important;
+}
+
+.small-box .inner h3 {
+  font-family: var(--font-display) !important;
+  font-size: 36px !important;
+  font-weight: 800 !important;
+  color: var(--text-primary) !important;
+  margin: 0 0 4px !important;
+  letter-spacing: -0.03em;
+}
+
+.small-box .inner p {
+  font-size: 12px !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 !important;
+}
+
+.small-box .icon {
+  position: absolute !important;
+  right: 16px !important;
+  top: 16px !important;
+  font-size: 48px !important;
+  opacity: 0.08 !important;
+  color: var(--text-primary) !important;
+}
+
+.small-box-footer {
+  display: block;
+  padding: 10px 20px !important;
+  background: rgba(0,0,0,0.25) !important;
+  border-top: 1px solid var(--border) !important;
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+  text-decoration: none !important;
+  transition: all var(--transition) !important;
+  font-weight: 500;
+}
+
+.small-box-footer:hover {
+  color: var(--accent) !important;
+  background: var(--accent-dim) !important;
+  text-decoration: none !important;
+}
+
+/* ─── MUI TABLE OVERRIDES ────────────────────────────────── */
+.MuiPaper-root {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.MuiTable-root {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+.MuiTableHead-root .MuiTableRow-root {
+  background: var(--bg-elevated) !important;
+}
+
+.MuiTableHead-root .MuiTableCell-root {
+  background: var(--bg-elevated) !important;
+  color: var(--text-muted) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid var(--border-bright) !important;
+  padding: 10px 16px !important;
+  white-space: nowrap;
+}
+
+.MuiTableBody-root .MuiTableRow-root {
+  background: transparent !important;
+  transition: background var(--transition) !important;
+}
+
+.MuiTableBody-root .MuiTableRow-root:hover {
+  background: var(--bg-hover) !important;
+}
+
+.MuiTableBody-root .MuiTableCell-root {
+  color: var(--text-primary) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 10px 16px !important;
+}
+
+/* Collapse row */
+.MuiCollapse-root .MuiTable-root {
+  background: var(--bg-base) !important;
+  border-radius: var(--radius) !important;
+}
+
+.MuiCollapse-root .MuiTableCell-root {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+.MuiTypography-h6 {
+  font-family: var(--font-display) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--text-muted) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ─── MUI FORM CONTROLS ──────────────────────────────────── */
+.MuiTextField-root,
+.MuiOutlinedInput-root {
+  background: var(--bg-elevated) !important;
+  border-radius: var(--radius) !important;
+}
+
+.MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: var(--border) !important;
+}
+
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: var(--border-bright) !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.MuiOutlinedInput-input {
+  color: var(--text-primary) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 14px !important;
+  padding: 10px 14px !important;
+}
+
+.MuiInputLabel-root {
+  color: var(--text-secondary) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+}
+
+.MuiInputLabel-root.Mui-focused { color: var(--accent) !important; }
+
+.MuiSelect-select {
+  color: var(--text-primary) !important;
+  font-family: var(--font-ui) !important;
+  background: var(--bg-elevated) !important;
+}
+
+.MuiSelect-icon { color: var(--text-secondary) !important; }
+
+.MuiMenu-paper {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-elevated) !important;
+}
+
+.MuiMenuItem-root {
+  color: var(--text-primary) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+}
+
+.MuiMenuItem-root:hover {
+  background: var(--bg-hover) !important;
+}
+
+.MuiMenuItem-root.Mui-selected {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+}
+
+/* ─── MUI BUTTONS ────────────────────────────────────────── */
+.MuiButton-root {
+  font-family: var(--font-ui) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em !important;
+  text-transform: none !important;
+  border-radius: var(--radius-sm) !important;
+  transition: all var(--transition) !important;
+}
+
+.MuiButton-contained {
+  background: var(--accent) !important;
+  color: var(--bg-base) !important;
+  box-shadow: none !important;
+}
+
+.MuiButton-contained:hover {
+  background: #00b8e8 !important;
+  box-shadow: 0 4px 16px var(--accent-glow) !important;
+}
+
+.MuiButton-outlined {
+  border-color: var(--border-bright) !important;
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+}
+
+.MuiButton-outlined:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-dim) !important;
+}
+
+.MuiButton-text {
+  color: var(--text-secondary) !important;
+}
+
+.MuiButton-text:hover {
+  background: var(--bg-hover) !important;
+  color: var(--accent) !important;
+}
+
+/* ─── MUI ICON BUTTONS ───────────────────────────────────── */
+.MuiIconButton-root {
+  color: var(--text-muted) !important;
+  transition: all var(--transition) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.MuiIconButton-root:hover {
+  color: var(--accent) !important;
+  background: var(--accent-dim) !important;
+}
+
+/* ─── MUI CHECKBOX ───────────────────────────────────────── */
+.MuiCheckbox-root {
+  color: var(--border-bright) !important;
+}
+
+.MuiCheckbox-root.Mui-checked {
+  color: var(--accent) !important;
+}
+
+/* ─── MUI DIALOG / MODAL ─────────────────────────────────── */
+.MuiDialog-paper {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-elevated) !important;
+  color: var(--text-primary) !important;
+}
+
+.MuiDialogTitle-root {
+  font-family: var(--font-display) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 16px 24px !important;
+}
+
+.MuiDialogContent-root {
+  padding: 20px 24px !important;
+}
+
+.MuiDialogActions-root {
+  border-top: 1px solid var(--border) !important;
+  padding: 12px 24px !important;
+  gap: 8px;
+}
+
+.MuiBackdrop-root {
+  background: rgba(5, 8, 15, 0.75) !important;
+  backdrop-filter: blur(4px);
+}
+
+/* ─── MUI SPEED DIAL ─────────────────────────────────────── */
+.MuiSpeedDial-fab {
+  background: var(--accent) !important;
+  color: var(--bg-base) !important;
+  box-shadow: 0 4px 24px var(--accent-glow) !important;
+}
+
+.MuiSpeedDial-fab:hover {
+  background: #00b8e8 !important;
+}
+
+/* ─── REACT-BOOTSTRAP FORM OVERRIDES ─────────────────────── */
+.form-control {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 14px !important;
+  padding: 9px 12px !important;
+  transition: all var(--transition) !important;
+}
+
+.form-control:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim) !important;
+  background: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+  outline: none !important;
+}
+
+.form-control::placeholder { color: var(--text-muted) !important; }
+
+.input-group-text {
+  background: var(--bg-hover) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-secondary) !important;
+  font-size: 14px !important;
+}
+
+.form-control.is-valid {
+  border-color: var(--accent-green) !important;
+  background-image: none !important;
+}
+
+.form-control.is-invalid {
+  border-color: var(--accent-red) !important;
+  background-image: none !important;
+}
+
+/* ─── LOGIN PAGE ─────────────────────────────────────────── */
+.login-page {
+  background: var(--bg-base) !important;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0,200,255,0.08) 0%, transparent 60%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 59px,
+      rgba(30,45,70,0.3) 59px,
+      rgba(30,45,70,0.3) 60px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 59px,
+      rgba(30,45,70,0.3) 59px,
+      rgba(30,45,70,0.3) 60px
+    ) !important;
+}
+
+.login-box {
+  width: 400px !important;
+  margin: auto;
+}
+
+.login-box .card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,200,255,0.05) !important;
+}
+
+.login-box .card-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 28px 24px 20px !important;
+  text-align: center !important;
+}
+
+.login-box .card-header a {
+  font-family: var(--font-display) !important;
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  color: var(--text-primary) !important;
+  text-decoration: none !important;
+  letter-spacing: -0.02em;
+}
+
+.login-box .card-header a b {
+  color: var(--accent) !important;
+}
+
+.login-box .card-header a span {
+  color: var(--text-secondary) !important;
+}
+
+.login-box .card-body { padding: 28px 24px !important; }
+
+.login-box-msg {
+  color: var(--text-secondary) !important;
+  font-size: 13px !important;
+  text-align: center;
+  margin-bottom: 24px !important;
+}
+
+/* ─── BOOTSTRAP BTN OVERRIDES ────────────────────────────── */
+.btn-primary, pf-button [type="submit"] {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--bg-base) !important;
+  font-weight: 600 !important;
+  border-radius: var(--radius-sm) !important;
+  transition: all var(--transition) !important;
+}
+
+.btn-primary:hover {
+  background: #00b8e8 !important;
+  box-shadow: 0 4px 16px var(--accent-glow) !important;
+}
+
+pf-button {
+  --pf-primary: var(--accent) !important;
+}
+
+/* ─── FOOTER ─────────────────────────────────────────────── */
+.main-footer {
+  background: var(--bg-surface) !important;
+  border-top: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  font-size: 12px !important;
+  font-family: var(--font-mono) !important;
+  padding: 12px 24px !important;
+  margin-left: 240px !important;
+}
+
+/* ─── SCROLLBAR ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ─── TOASTIFY OVERRIDES ─────────────────────────────────── */
+.Toastify__toast {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: var(--radius) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-elevated) !important;
+}
+
+.Toastify__toast--success { border-left: 3px solid var(--accent-green) !important; }
+.Toastify__toast--error   { border-left: 3px solid var(--accent-red) !important; }
+.Toastify__toast--warning { border-left: 3px solid var(--accent-amber) !important; }
+.Toastify__toast--info    { border-left: 3px solid var(--accent) !important; }
+
+.Toastify__progress-bar--success { background: var(--accent-green) !important; }
+.Toastify__progress-bar--error   { background: var(--accent-red) !important; }
+.Toastify__progress-bar--warning { background: var(--accent-amber) !important; }
+.Toastify__progress-bar--info    { background: var(--accent) !important; }
+
+.Toastify__close-button { color: var(--text-muted) !important; }
+
+/* ─── COLLAPSIBLE SIDEBAR STATE ──────────────────────────── */
+.sidebar-collapse .main-sidebar { width: 56px !important; }
+.sidebar-collapse .brand-text { display: none; }
+.sidebar-collapse .nav-sidebar .nav-link { justify-content: center; }
+.sidebar-collapse .nav-sidebar .nav-link span:not(.nav-icon) { display: none; }
+.sidebar-collapse .content-wrapper,
+.sidebar-collapse .main-footer { margin-left: 56px !important; }
+
+/* ─── USER DROPDOWN ──────────────────────────────────────── */
+.dropdown-menu {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-elevated) !important;
+  padding: 6px !important;
+}
+
+.dropdown-item {
+  color: var(--text-secondary) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 8px 12px !important;
+  transition: all var(--transition);
+}
+
+.dropdown-item:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+.dropdown-divider { border-color: var(--border) !important; }
+
+/* ─── PRELOADER ──────────────────────────────────────────── */
+.preloader {
+  background: var(--bg-base) !important;
+}
+
+/* ─── CODE / PRE ─────────────────────────────────────────── */
+.codePre, pre, code {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  background: var(--bg-elevated) !important;
+  color: var(--accent) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 2px 6px;
+}
+
+/* ─── MISC UTILITIES ─────────────────────────────────────── */
+a { color: var(--accent); transition: color var(--transition); }
+a:hover { color: #33d4ff; text-decoration: none; }
+
+.text-muted { color: var(--text-muted) !important; }
+
+hr {
+  border-color: var(--border) !important;
+  opacity: 1 !important;
+}
+
+/* Status badge-style chips */
+.badge-online, .status-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  background: rgba(0,230,118,0.1);
+  color: var(--accent-green);
+  border: 1px solid rgba(0,230,118,0.25);
+}
+
+/* Sidebar overlay on mobile */
+#sidebar-overlay {
+  background: rgba(5,8,15,0.7) !important;
+  backdrop-filter: blur(2px);
+}
+
+/* MUI Divider */
+.MuiDivider-root {
+  border-color: var(--border) !important;
+}
+
+/* Control sidebar */
+.control-sidebar {
+  background: var(--bg-surface) !important;
+  border-left: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ─── MUI MODAL BOX HARDFIX ──────────────────────────────── */
+/* Catches any Box inside a Modal that still gets a light background */
+.MuiModal-root .MuiBox-root {
+  background-color: #18213a !important;
+  color: #e8f0fe !important;
+  border-color: #2a3f5c !important;
+}
+
+.MuiModal-root h3,
+.MuiModal-root h4,
+.MuiModal-root h5,
+.MuiModal-root label,
+.MuiModal-root p {
+  color: #e8f0fe !important;
+}
+
+/* MUI FormLabel and FormControlLabel text */
+.MuiFormLabel-root,
+.MuiFormControlLabel-label {
+  color: #7a93b8 !important;
+}
+
+.MuiFormLabel-root.Mui-focused { color: #00c8ff !important; }
+
+/* MUI FormHelperText */
+.MuiFormHelperText-root {
+  color: #3d5273 !important;
+}
+
+/* Ensure Switch labels are readable */
+.MuiSwitch-track { background-color: #1e2d45 !important; }
+
+/* MUI Accordion (used in some add forms) */
+.MuiAccordion-root {
+  background: #141d2b !important;
+  border: 1px solid #1e2d45 !important;
+  color: #e8f0fe !important;
+}
+
+.MuiAccordionSummary-root { color: #e8f0fe !important; }
+.MuiAccordionDetails-root { color: #7a93b8 !important; }
+
+/* ─── FORM VALIDATION ERROR STATES ──────────────────────── */
+/* MUI TextField / OutlinedInput in error state */
+.MuiOutlinedInput-root.Mui-error .MuiOutlinedInput-notchedOutline {
+  border-color: #ff4757 !important;
+  border-width: 1px !important;
+}
+
+.MuiOutlinedInput-root.Mui-error:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #ff6b78 !important;
+}
+
+.MuiInputLabel-root.Mui-error {
+  color: #ff4757 !important;
+}
+
+.MuiFormHelperText-root.Mui-error {
+  color: #ff4757 !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+/* MUI Select in error state */
+.MuiSelect-root.Mui-error,
+.MuiOutlinedInput-root.Mui-error .MuiSelect-select {
+  border-color: #ff4757 !important;
+}
+
+/* Autocomplete error state */
+.MuiAutocomplete-root .MuiOutlinedInput-root.Mui-error .MuiOutlinedInput-notchedOutline {
+  border-color: #ff4757 !important;
+}
+
+/* Add button hover state (defined in JS but :hover needs CSS) */
+.pyhss-add-btn:hover {
+  background: rgba(0,200,255,0.08) !important;
+  border-color: #00c8ff !important;
+  color: #00c8ff !important;
+}
+
+/* ─── AUTOCOMPLETE DROPDOWN (global dark theme) ─────────── */
+.MuiAutocomplete-popper .MuiPaper-root {
+  background: #18213a !important;
+  border: 1px solid #2a3f5c !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+}
+
+.MuiAutocomplete-popper .MuiAutocomplete-listbox {
+  padding: 4px 0;
+  background: #18213a !important;
+}
+
+.MuiAutocomplete-popper .MuiAutocomplete-option {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 13px !important;
+  color: #e8f0fe !important;
+  padding: 10px 14px !important;
+}
+
+.MuiAutocomplete-popper .MuiAutocomplete-option:hover,
+.MuiAutocomplete-popper .MuiAutocomplete-option.Mui-focused {
+  background: rgba(0,200,255,0.08) !important;
+  color: #00c8ff !important;
+}
+
+.MuiAutocomplete-popper .MuiAutocomplete-option[aria-selected="true"] {
+  background: rgba(0,200,255,0.12) !important;
+  color: #00c8ff !important;
+}
+
+.MuiAutocomplete-popper .MuiAutocomplete-noOptions,
+.MuiAutocomplete-popper .MuiAutocomplete-loading {
+  color: #3d5273 !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 12px !important;
+  background: #18213a !important;
+}
+
+/* Autocomplete input text always readable */
+.MuiAutocomplete-root .MuiOutlinedInput-root input {
+  color: #e8f0fe !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 13px !important;
+}
+
+/* Disabled autocomplete (e.g. IMSI in edit mode) */
+.MuiAutocomplete-root .MuiOutlinedInput-root.Mui-disabled input {
+  -webkit-text-fill-color: #3d5273 !important;
+  color: #3d5273 !important;
+}
+
+/* Multi-select chips inside autocomplete */
+.MuiAutocomplete-root .MuiChip-root {
+  background: rgba(0,200,255,0.12) !important;
+  color: #00c8ff !important;
+  border: 1px solid rgba(0,200,255,0.25) !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+.MuiAutocomplete-root .MuiChip-root .MuiChip-deleteIcon {
+  color: rgba(0,200,255,0.5) !important;
+}
+
+.MuiAutocomplete-root .MuiChip-root .MuiChip-deleteIcon:hover {
+  color: #ff4757 !important;
+}
+
+/* Dropdown arrow icon */
+.MuiAutocomplete-root .MuiAutocomplete-endAdornment .MuiSvgIcon-root {
+  color: #3d5273 !important;
+}
