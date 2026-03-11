@@ -132,7 +132,7 @@ const normalizePayload = (payload: any) => {
                 id="pgw_address"
                 label={i18n.t('inputFields.header.pgw')}
               >
-                {'Leave blank — will be DNS resolved by the MME'}
+                {'IP address — leave blank for DNS lookup'}
               </InputField>
             </Grid>
             <Grid item xs={6}>
@@ -142,7 +142,7 @@ const normalizePayload = (payload: any) => {
                 id="sgw_address"
                 label={i18n.t('inputFields.header.sgw')}
               >
-                {'Leave blank — will be DNS resolved by the MME'}
+                {'IP address — leave blank for DNS lookup'}
               </InputField>
             </Grid>
             <Grid item xs={12}><h3>{i18n.t('apn.chargingHead')}</h3></Grid>

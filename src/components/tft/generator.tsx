@@ -5,70 +5,95 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 
 import {SelectField, InputField} from '@components';
-import i18n from '@app/utils/i18n';
 
-// Build an address token: ip selection + optional port range
-const AddrField = ({ label, ip, port, onIpChange, onPortChange }: {
+// Resolve the stored IP token from the dropdown + optional custom CIDR input
+const resolveIp = (mode: string, custom: string): string => {
+  if (mode === '{{UE_IP}}') return '{{UE_IP}}';
+  if (mode === 'custom')    return custom.trim() || 'any';
+  return 'any';
+};
+
+const buildAddr = (ip: string, port: string): string =>
+  port.trim() ? `${ip} ${port.trim()}` : ip;
+
+// Source/Destination field: dropdown + optional CIDR input + port range
+const AddrField = ({ label, mode, custom, port, onModeChange, onCustomChange, onPortChange }: {
   label: string;
-  ip: string;
+  mode: string;
+  custom: string;
   port: string;
-  onIpChange: (v: string) => void;
+  onModeChange: (v: string) => void;
+  onCustomChange: (v: string) => void;
   onPortChange: (v: string) => void;
 }) => (
-  <Grid container spacing={1}>
-    <Grid item xs={6}>
+  <Grid container spacing={1} alignItems="flex-start">
+    <Grid item xs={12}>
+      <strong style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: "'IBM Plex Mono', monospace" }}>
+        {label}
+      </strong>
+    </Grid>
+    <Grid item xs={mode === 'custom' ? 4 : 6}>
       <SelectField
         required
-        value={ip}
-        onChange={(_name, value) => onIpChange(value)}
-        id={`${label}_ip`}
+        value={mode}
+        onChange={(_name, value) => onModeChange(value)}
+        id={`${label}_mode`}
         label={`${label} IP`}
         helper=""
       >
         <MenuItem value="any">any</MenuItem>
-        <MenuItem value="UE_IP">UE_IP</MenuItem>
+        <MenuItem value="{{UE_IP}}">{'{{UE_IP}}'} — subscriber address</MenuItem>
+        <MenuItem value="custom">Custom IP / CIDR</MenuItem>
       </SelectField>
     </Grid>
-    <Grid item xs={6}>
+    {mode === 'custom' && (
+      <Grid item xs={4}>
+        <InputField
+          required
+          label="IP / CIDR"
+          id={`${label}_cidr`}
+          onChange={(_name, value) => onCustomChange(value)}
+          value={custom}
+        >e.g. 10.0.0.0/8 or 192.168.1.1</InputField>
+      </Grid>
+    )}
+    <Grid item xs={mode === 'custom' ? 4 : 6}>
       <InputField
         label={`${label} Port Range`}
         id={`${label}_port`}
         onChange={(_name, value) => onPortChange(value)}
         value={port}
-      >e.g. 1-65535 (leave blank for any)</InputField>
+      >e.g. 80 or 1024-65535 (blank = any)</InputField>
     </Grid>
   </Grid>
 );
 
-const TftGenerator = (props: {
-  onGenerate: Function
-}) => {
+const TftGenerator = (props: { onGenerate: Function }) => {
   const { onGenerate } = props;
 
-  const [action, setAction] = useState('');
+  const [action,    setAction]    = useState('permit');
   const [direction, setDirection] = useState('');
-  const [protocol, setProtocol] = useState('');
-  const [srcIp, setSrcIp] = useState('any');
-  const [srcPort, setSrcPort] = useState('');
-  const [dstIp, setDstIp] = useState('any');
-  const [dstPort, setDstPort] = useState('');
+  const [protocol,  setProtocol]  = useState('ip');
 
-  const buildAddr = (ip: string, port: string) => {
-    const p = port.trim();
-    return p ? `${ip} ${p}` : ip;
-  };
+  const [srcMode,   setSrcMode]   = useState('any');
+  const [srcCustom, setSrcCustom] = useState('');
+  const [srcPort,   setSrcPort]   = useState('');
+
+  const [dstMode,   setDstMode]   = useState('any');
+  const [dstCustom, setDstCustom] = useState('');
+  const [dstPort,   setDstPort]   = useState('');
 
   const generateFilter = () => {
-    const src = buildAddr(srcIp, srcPort);
-    const dst = buildAddr(dstIp, dstPort);
-    const filterRule = `${action}${direction ? ' ' + direction : ''} ${protocol} from ${src} to ${dst}`;
-    onGenerate(filterRule);
+    const src = buildAddr(resolveIp(srcMode, srcCustom), srcPort);
+    const dst = buildAddr(resolveIp(dstMode, dstCustom), dstPort);
+    const rule = `${action}${direction ? ' ' + direction : ''} ${protocol} from ${src} to ${dst}`;
+    onGenerate(rule);
   };
 
   const clearGenerator = () => {
-    setSrcIp('any'); setSrcPort('');
-    setDstIp('any'); setDstPort('');
-    setDirection(''); setProtocol(''); setAction('');
+    setAction('permit'); setDirection(''); setProtocol('ip');
+    setSrcMode('any'); setSrcCustom(''); setSrcPort('');
+    setDstMode('any'); setDstCustom(''); setDstPort('');
   };
 
   return (
@@ -78,9 +103,10 @@ const TftGenerator = (props: {
           <Grid item xs={12}>&nbsp;</Grid>
           <Grid item xs={10}><h3>TFT Rule Generator</h3></Grid>
           <Grid item xs={2}>
-            <Button onClick={clearGenerator}>Clear&nbsp;<i className="fas fa-broom"></i></Button>
-            <Button onClick={generateFilter} variant="contained">Generate&nbsp;<i className="fas fa-arrow-up"></i></Button>
+            <Button onClick={clearGenerator}>Clear&nbsp;<i className="fas fa-broom" /></Button>
+            <Button onClick={generateFilter} variant="contained">Generate&nbsp;<i className="fas fa-arrow-up" /></Button>
           </Grid>
+
           <Grid item xs={3}>
             <SelectField required value={action} onChange={(_n, v) => setAction(v)} id="action" label="Action" helper="">
               <MenuItem value="permit">permit</MenuItem>
@@ -102,11 +128,20 @@ const TftGenerator = (props: {
               <MenuItem value="1">icmp</MenuItem>
             </SelectField>
           </Grid>
+
           <Grid item xs={12}>
-            <AddrField label="Source" ip={srcIp} port={srcPort} onIpChange={setSrcIp} onPortChange={setSrcPort} />
+            <AddrField
+              label="Source"
+              mode={srcMode}   custom={srcCustom}   port={srcPort}
+              onModeChange={setSrcMode} onCustomChange={setSrcCustom} onPortChange={setSrcPort}
+            />
           </Grid>
           <Grid item xs={12}>
-            <AddrField label="Destination" ip={dstIp} port={dstPort} onIpChange={setDstIp} onPortChange={setDstPort} />
+            <AddrField
+              label="Destination"
+              mode={dstMode}   custom={dstCustom}   port={dstPort}
+              onModeChange={setDstMode} onCustomChange={setDstCustom} onPortChange={setDstPort}
+            />
           </Grid>
         </Grid>
       </Box>
