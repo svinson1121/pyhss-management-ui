@@ -70,3 +70,5 @@ Removed  SGW-C as a required field in the APN section.
 
 fixed bug #6 (Bug in APN PGW and SGW), Removed PGW-C as a required field in the APN section, bumped version to 0.1.4
 
+New web-ui interface, New Dashboard, new OAM features like rollback. added {{UE_IP}} option to TFT Gen, and  many bugs fixes. V0.2.0   
+
