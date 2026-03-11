@@ -1,5 +1,5 @@
 # Docker
-`docker run -p 8999:80  ghcr.io/svinson1121/pyhss-management-ui:latest`   
+`docker run -p 8999:80  svinson1121/pyhss-management-ui:latest`   
 
 After the container is started you can access the webinterface on port 8999 (http://localhost:8999)
 
