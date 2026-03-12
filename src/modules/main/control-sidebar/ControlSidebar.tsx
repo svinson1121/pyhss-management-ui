@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { toggleControlSidebar, toggleDarkMode, toggleSidebarMenu, setDashboardRefresh, REFRESH_OPTIONS, RefreshInterval } from '@app/store/reducers/ui';
+import { toggleControlSidebar, toggleDarkMode, toggleSidebarMenu, setDashboardRefresh, toggleMetrics, REFRESH_OPTIONS, RefreshInterval } from '@app/store/reducers/ui';
 import { toast } from 'react-toastify';
 
 interface ControlSidebarProps {
@@ -13,15 +13,18 @@ const ControlSidebar = ({ collapsed = true, width = 280 }: ControlSidebarProps) 
   const darkMode = useSelector((state: any) => state.ui.darkMode);
   const menuSidebarCollapsed = useSelector((state: any) => state.ui.menuSidebarCollapsed);
   const refreshInterval = useSelector((state: any) => state.ui.dashboardRefreshInterval) as RefreshInterval;
+  const metricsEnabled = useSelector((state: any) => state.ui.metricsEnabled);
 
   const refreshLabels: Record<number, string> = { 15: '15s', 30: '30s', 60: '1m', 300: '5m' };
 
   const [apiUrl, setApiUrl] = React.useState(() => localStorage.getItem('api') || 'http://localhost:8080');
   const [apiKey, setApiKey] = React.useState(() => localStorage.getItem('token') || '');
+  const [metricsUrl, setMetricsUrl] = React.useState(() => localStorage.getItem('metricsUrl') || '');
 
   const saveConnection = () => {
     localStorage.setItem('api', apiUrl.trim());
     localStorage.setItem('token', apiKey.trim());
+    localStorage.setItem('metricsUrl', metricsUrl.trim());
     toast.success('Connection settings saved');
   };
 
@@ -136,6 +139,40 @@ const ControlSidebar = ({ collapsed = true, width = 280 }: ControlSidebarProps) 
                 style={styles.textInput}
               />
             </div>
+            <div>
+              <div style={styles.optionLabel}>
+                Prometheus URI
+                <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> (optional)</span>
+              </div>
+              <input
+                type="text"
+                value={metricsUrl}
+                onChange={e => setMetricsUrl(e.target.value)}
+                placeholder="http://prometheus:9090"
+                style={styles.textInput}
+              />
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', fontFamily: "'IBM Plex Mono', monospace" }}>
+                Enables Diameter metrics on the dashboard
+              </div>
+            </div>
+            <div style={{ ...styles.row, borderBottom: 'none', paddingBottom: 0 }}>
+              <div>
+                <div style={styles.optionLabel}>Diameter Metrics</div>
+                <div style={styles.optionDesc}>Show metrics section on dashboard</div>
+              </div>
+              <button
+                style={{
+                  ...styles.toggle,
+                  ...(metricsEnabled ? styles.toggleOn : {}),
+                }}
+                onClick={() => dispatch(toggleMetrics())}
+              >
+                <span style={{
+                  ...styles.toggleKnob,
+                  transform: metricsEnabled ? 'translateX(20px)' : 'translateX(2px)',
+                }} />
+              </button>
+            </div>
             <button style={styles.saveBtn} onClick={saveConnection}>
               <i className="fas fa-check" style={{ marginRight: '6px', fontSize: '11px' }} />
               Save Connection
@@ -143,21 +180,6 @@ const ControlSidebar = ({ collapsed = true, width = 280 }: ControlSidebarProps) 
           </div>
         </section>
 
-        <section style={styles.section}>
-          <div style={styles.sectionTitle}>About</div>
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Version</span>
-            <span style={styles.infoValue}>0.1.4</span>
-          </div>
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Project</span>
-            <span style={styles.infoValue}>PyHSS-GUI</span>
-          </div>
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Stack</span>
-            <span style={styles.infoValue}>React + Vite</span>
-          </div>
-        </section>
       </div>
     </aside>
   );

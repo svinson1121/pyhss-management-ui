@@ -14,13 +14,9 @@ const Footer = ({ sidebarWidth = 240, controlSidebarCollapsed = true, controlSid
     right: controlSidebarCollapsed ? 0 : controlSidebarWidth,
     transition: 'left 0.2s ease, right 0.2s ease',
   }}>
-    <span>PyHSS Management Interface</span>
+    <span>PyHSS Management UI</span>
     <span style={styles.sep}>·</span>
     <span>v{packageJSON.version}</span>
-    <span style={styles.right}>
-      <span style={styles.dot} />
-      System Operational
-    </span>
   </footer>
 );
 

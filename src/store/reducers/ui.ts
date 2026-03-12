@@ -29,6 +29,7 @@ export interface UiState {
   navbarVariant: string;
   sidebarSkin: string;
   dashboardRefreshInterval: RefreshInterval;
+  metricsEnabled: boolean;
 }
 
 const storedRefresh = parseInt(localStorage.getItem('dashboardRefresh') || '15', 10);
@@ -56,6 +57,7 @@ const initialState: UiState = {
   menuChildIndent: false,
   layoutFixed: false,
   dashboardRefreshInterval: validRefresh,
+  metricsEnabled: localStorage.getItem('metricsEnabled') !== 'false',
 };
 
 addWindowClass('layout-footer-fixed');
@@ -158,6 +160,10 @@ export const uiSlice = createSlice({
         state.sidebarSkin = payload || SIDEBAR_LIGHT_SKINS[0].value;
       }
     },
+    toggleMetrics: (state) => {
+      state.metricsEnabled = !state.metricsEnabled;
+      localStorage.setItem('metricsEnabled', String(state.metricsEnabled));
+    },
     setDashboardRefresh: (state, {payload}: {payload: RefreshInterval}) => {
       state.dashboardRefreshInterval = payload;
       localStorage.setItem('dashboardRefresh', String(payload));
@@ -184,6 +190,7 @@ export const {
   toggleMenuChildIndent,
   toggleLayoutFixed,
   setDashboardRefresh,
+  toggleMetrics,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

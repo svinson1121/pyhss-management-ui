@@ -2,6 +2,7 @@ import React from 'react';
 import { ContentHeader } from '@components';
 import { OamApi } from '../services/pyhss';
 import { toast } from 'react-toastify';
+import { useSelector } from 'react-redux';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,11 @@ interface GroupedPeer {
   connectedCount: number;
   lastConnect: string;
   reconnections: number;
+}
+
+interface PromResult {
+  metric: Record<string, string>;
+  value: [number, string];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -92,6 +98,15 @@ const groupPeers = (peers: DiameterPeer[]): GroupedPeer[] => {
   return Array.from(map.values()).sort((a, b) => b.connectedCount - a.connectedCount);
 };
 
+const promQuery = async (baseUrl: string, query: string): Promise<PromResult[]> => {
+  const url = `${baseUrl.replace(/\/$/, '')}/api/v1/query?query=${encodeURIComponent(query)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const j = await r.json();
+  if (j.status !== 'success') throw new Error(j.error || 'PromQL error');
+  return j.data?.result ?? [];
+};
+
 const opBadgeColor: Record<string, string> = {
   INSERT: 'var(--accent-green)',
   UPDATE: 'var(--accent)',
@@ -132,9 +147,9 @@ const Badge = ({ label, color }: { label: string; color: string }) => (
   </span>
 );
 
-// ─── Operation Logs Section ───────────────────────────────────────────────────
+// ─── Operation Logs ───────────────────────────────────────────────────────────
 
-const OperationLogs = () => {
+const OperationLogs = ({ refreshTick }: { refreshTick: number }) => {
   const [logs, setLogs] = React.useState<OpLog[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [rollbackingId, setRollbackingId] = React.useState<string | null>(null);
@@ -142,26 +157,21 @@ const OperationLogs = () => {
   const [tableFilter, setTableFilter] = React.useState('');
   const [opFilter, setOpFilter] = React.useState('');
 
-  const fetchLogs = () => {
+  const fetchLogs = React.useCallback(() => {
     setLoading(true);
     OamApi.operationLogs(0, 20)
       .then(d => {
         const raw = d.data;
-        // Handle both plain array and paginated wrapper {items:[...]} or {results:[...]}
-        const list: OpLog[] = Array.isArray(raw)
-          ? raw
-          : Array.isArray(raw?.items)
-          ? raw.items
-          : Array.isArray(raw?.results)
-          ? raw.results
-          : [];
+        const list: OpLog[] = Array.isArray(raw) ? raw
+          : Array.isArray(raw?.items) ? raw.items
+          : Array.isArray(raw?.results) ? raw.results : [];
         setLogs(list);
       })
       .catch(() => { setLogs([]); toast.error('Failed to load operation logs'); })
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  React.useEffect(() => { fetchLogs(); }, []);
+  React.useEffect(() => { fetchLogs(); }, [fetchLogs, refreshTick]);
 
   const doRollback = (operationId: string, label: string) => {
     if (!window.confirm(`Rollback:\n${label}\n\nThis will reverse the operation. Continue?`)) return;
@@ -192,23 +202,13 @@ const OperationLogs = () => {
 
   return (
     <div style={S.section}>
-      <SectionHeader icon="fas fa-history" title="Operation Logs" note={`last 50 changes`}>
+      <SectionHeader icon="fas fa-history" title="Operation Logs" note="last 20 changes">
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-          {/* Table filter */}
-          <select
-            value={tableFilter}
-            onChange={e => setTableFilter(e.target.value)}
-            style={S.filterSelect}
-          >
+          <select value={tableFilter} onChange={e => setTableFilter(e.target.value)} style={S.filterSelect}>
             <option value="">All tables</option>
             {tables.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          {/* Op filter */}
-          <select
-            value={opFilter}
-            onChange={e => setOpFilter(e.target.value)}
-            style={S.filterSelect}
-          >
+          <select value={opFilter} onChange={e => setOpFilter(e.target.value)} style={S.filterSelect}>
             <option value="">All ops</option>
             <option value="INSERT">INSERT</option>
             <option value="UPDATE">UPDATE</option>
@@ -218,17 +218,13 @@ const OperationLogs = () => {
             <i className={`fas fa-sync${loading ? ' fa-spin' : ''}`} style={{ marginRight: 5 }} />
             Refresh
           </button>
-          <button
-            onClick={doRollbackLast}
-            disabled={rollbackingId !== null || logs.length === 0}
-            style={{ ...S.btnDanger, opacity: rollbackingId ? 0.5 : 1 }}
-          >
+          <button onClick={doRollbackLast} disabled={rollbackingId !== null || logs.length === 0}
+            style={{ ...S.btnDanger, opacity: rollbackingId ? 0.5 : 1 }}>
             <i className="fas fa-undo" style={{ marginRight: 5 }} />
             Rollback Last
           </button>
         </div>
       </SectionHeader>
-
       <div style={S.tableCard}>
         {loading && filtered.length === 0 ? (
           <div style={S.empty}><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 8 }} />Loading…</div>
@@ -237,11 +233,7 @@ const OperationLogs = () => {
         ) : (
           <table style={S.table}>
             <thead>
-              <tr>
-                {['Time', 'Op', 'Table', 'ID', 'Changes', ''].map(h => (
-                  <th key={h} style={S.th}>{h}</th>
-                ))}
-              </tr>
+              <tr>{['Time', 'Op', 'Table', 'ID', 'Changes', ''].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
             </thead>
             <tbody>
               {filtered.map(op => {
@@ -259,12 +251,8 @@ const OperationLogs = () => {
                         {fmtTs(op.timestamp)}
                       </td>
                       <td style={S.td}><Badge label={op.operation} color={color} /></td>
-                      <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        {op.table_name}
-                      </td>
-                      <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)' }}>
-                        #{op.item_id}
-                      </td>
+                      <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>{op.table_name}</td>
+                      <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)' }}>#{op.item_id}</td>
                       <td style={{ ...S.td, fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                         {changes.map(c => `${c.field}: ${truncate(c.from)} → ${truncate(c.to)}`).join(' · ')}
                       </td>
@@ -274,10 +262,7 @@ const OperationLogs = () => {
                           disabled={rollbackingId !== null}
                           style={{ ...S.btnDanger, padding: '3px 9px', fontSize: '11px', opacity: rollbackingId ? 0.5 : 1 }}
                         >
-                          {isRolling
-                            ? <i className="fas fa-circle-notch fa-spin" />
-                            : <><i className="fas fa-undo" style={{ marginRight: 4 }} />Rollback</>
-                          }
+                          {isRolling ? <i className="fas fa-circle-notch fa-spin" /> : <><i className="fas fa-undo" style={{ marginRight: 4 }} />Rollback</>}
                         </button>
                       </td>
                     </tr>
@@ -289,11 +274,7 @@ const OperationLogs = () => {
                           </div>
                           <table style={{ width: '100%', borderCollapse: 'collapse' as const }}>
                             <thead>
-                              <tr>
-                                {['Field', 'Before', 'After'].map(h => (
-                                  <th key={h} style={{ ...S.th, background: 'var(--bg-base)', fontSize: '10px' }}>{h}</th>
-                                ))}
-                              </tr>
+                              <tr>{['Field', 'Before', 'After'].map(h => <th key={h} style={{ ...S.th, background: 'var(--bg-base)', fontSize: '10px' }}>{h}</th>)}</tr>
                             </thead>
                             <tbody>
                               {changes.map((c, i) => (
@@ -319,14 +300,16 @@ const OperationLogs = () => {
   );
 };
 
-// ─── Diameter Peers Section ───────────────────────────────────────────────────
+// ─── Diameter Peers ───────────────────────────────────────────────────────────
 
-const DiameterPeers = () => {
+const DiameterPeers = ({ refreshTick, metricsEnabled }: { refreshTick: number; metricsEnabled: boolean }) => {
   const [peers, setPeers] = React.useState<GroupedPeer[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(false);
+  const [promData, setPromData] = React.useState<{ hostReqs: PromResult[]; hostResps: PromResult[] } | null>(null);
+  const prometheusUrl = localStorage.getItem('metricsUrl') || '';
 
-  const fetchPeers = () => {
+  const fetchPeers = React.useCallback(() => {
     setLoading(true);
     OamApi.diameterPeers()
       .then(d => {
@@ -337,9 +320,19 @@ const DiameterPeers = () => {
       })
       .catch(() => { setPeers([]); setError(true); })
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  React.useEffect(() => { fetchPeers(); }, []);
+  React.useEffect(() => { fetchPeers(); }, [fetchPeers, refreshTick]);
+
+  // Fetch per-host prometheus data when metrics enabled
+  React.useEffect(() => {
+    if (!metricsEnabled || !prometheusUrl) { setPromData(null); return; }
+    Promise.all([
+      promQuery(prometheusUrl, 'prom_diam_request_count_host'),
+      promQuery(prometheusUrl, 'prom_diam_response_count_host'),
+    ]).then(([hostReqs, hostResps]) => setPromData({ hostReqs, hostResps }))
+      .catch(() => setPromData(null));
+  }, [metricsEnabled, prometheusUrl, refreshTick]);
 
   const upCount = peers.filter(p => p.connectedCount > 0).length;
 
@@ -362,15 +355,17 @@ const DiameterPeers = () => {
           <table style={S.table}>
             <thead>
               <tr>
-                {['Status', 'Hostname / IP', 'Type', 'Connections', 'Reconnections', 'Last Connect'].map(h => (
-                  <th key={h} style={S.th}>{h}</th>
-                ))}
+                {['Status', 'Hostname / IP', 'Type', 'Connections', 'Reconnections', 'Last Connect',
+                  ...(metricsEnabled && promData ? ['Req Rx', 'Resp Tx'] : [])
+                ].map(h => <th key={h} style={S.th}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {peers.map((peer, i) => {
                 const up = peer.connectedCount > 0;
                 const color = peerTypeColor[peer.peerType] || 'var(--text-secondary)';
+                const reqResult = promData?.hostReqs.find(r => r.metric.host === peer.hostname);
+                const respResult = promData?.hostResps.find(r => r.metric.host === peer.hostname);
                 return (
                   <tr key={i} style={S.tableRow}>
                     <td style={S.td}>
@@ -390,6 +385,16 @@ const DiameterPeers = () => {
                     </td>
                     <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)' }}>{peer.reconnections}</td>
                     <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>{fmtTs(peer.lastConnect)}</td>
+                    {metricsEnabled && promData && (
+                      <>
+                        <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--accent)' }}>
+                          {reqResult ? parseFloat(reqResult.value[1]).toLocaleString() : '—'}
+                        </td>
+                        <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--accent-green)' }}>
+                          {respResult ? parseFloat(respResult.value[1]).toLocaleString() : '—'}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })}
@@ -401,51 +406,190 @@ const DiameterPeers = () => {
   );
 };
 
-// ─── GeoRed Section ───────────────────────────────────────────────────────────
+// ─── Auth Failure Detail (metrics-only) ──────────────────────────────────────
 
-const GeoRed = () => {
+const AuthFailureDetail = ({ refreshTick }: { refreshTick: number }) => {
+  const [authEvents, setAuthEvents] = React.useState<PromResult[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const prometheusUrl = localStorage.getItem('metricsUrl') || '';
+
+  React.useEffect(() => {
+    if (!prometheusUrl) return;
+    setLoading(true);
+    promQuery(prometheusUrl, 'prom_diam_auth_event_count_total')
+      .then(r => setAuthEvents(r))
+      .catch(() => setAuthEvents([]))
+      .finally(() => setLoading(false));
+  }, [prometheusUrl, refreshTick]);
+
+  const total = authEvents.reduce((a, r) => a + parseFloat(r.value[1]), 0);
+
+  return (
+    <div style={S.section}>
+      <SectionHeader icon="fas fa-user-slash" title="Auth Failure Detail" note={total > 0 ? `${total} total failures` : 'no failures recorded'} />
+      <div style={S.tableCard}>
+        {loading ? (
+          <div style={S.empty}><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 8 }} />Loading…</div>
+        ) : authEvents.length === 0 ? (
+          <div style={S.empty}><i className="fas fa-check-circle" style={{ color: 'var(--accent-green)', marginRight: 8 }} />No auth failures recorded</div>
+        ) : (
+          <table style={S.table}>
+            <thead>
+              <tr>{['Event', 'IMSI Prefix', 'App ID', 'Cmd Code', 'Count'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {authEvents.map((r, i) => (
+                <tr key={i} style={S.tableRow}>
+                  <td style={{ ...S.td, color: 'var(--accent-red)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{r.metric.event || '—'}</td>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 12 }}>{r.metric.imsi_prefix || '—'}</td>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>{r.metric.diameter_application_id || '—'}</td>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>{r.metric.diameter_cmd_code || '—'}</td>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: 'var(--accent-red)' }}>{parseFloat(r.value[1])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── Subs Seen (last 10) ──────────────────────────────────────────────────────
+
+const SubsSeen = ({ refreshTick }: { refreshTick: number }) => {
+  const [rows, setRows] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    setLoading(true);
+    OamApi.servingSubs()
+      .then(d => {
+        const entries = Object.entries(d.data ?? {}) as [string, any][];
+        const sorted = entries
+          .filter(([, v]) => v.serving_mme_timestamp)
+          .sort(([, a], [, b]) => new Date(b.serving_mme_timestamp).getTime() - new Date(a.serving_mme_timestamp).getTime())
+          .slice(0, 10)
+          .map(([imsi, v]) => ({ imsi, ...v }));
+        setRows(sorted);
+      })
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, [refreshTick]);
+
+  return (
+    <div style={S.section}>
+      <SectionHeader icon="fas fa-signal" title="Subs Seen" note="last 10 by MME contact" />
+      <div style={S.tableCard}>
+        {loading ? (
+          <div style={S.empty}><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 8 }} />Loading…</div>
+        ) : rows.length === 0 ? (
+          <div style={S.empty}>No subscriber sessions found</div>
+        ) : (
+          <table style={S.table}>
+            <thead>
+              <tr>{['IMSI', 'Serving MME', 'Last MME Contact'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} style={S.tableRow}>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 12 }}>{r.imsi}</td>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>{r.serving_mme || '—'}</td>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{fmtTs(r.serving_mme_timestamp)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── PCRF Sessions (last 10) ──────────────────────────────────────────────────
+
+const PcrfSessions = ({ refreshTick }: { refreshTick: number }) => {
+  const [rows, setRows] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    setLoading(true);
+    OamApi.servingSubsPcrf()
+      .then(d => {
+        const entries = Object.entries(d.data ?? {}) as [string, any][];
+        const sorted = entries
+          .filter(([, v]) => v.serving_pgw_timestamp)
+          .sort(([, a], [, b]) => new Date(b.serving_pgw_timestamp).getTime() - new Date(a.serving_pgw_timestamp).getTime())
+          .slice(0, 10)
+          .map(([imsi, v]) => ({ imsi, ...v }));
+        setRows(sorted);
+      })
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, [refreshTick]);
+
+  return (
+    <div style={S.section}>
+      <SectionHeader icon="fas fa-network-wired" title="PCRF Sessions" note="last 10 by PGW contact" />
+      <div style={S.tableCard}>
+        {loading ? (
+          <div style={S.empty}><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 8 }} />Loading…</div>
+        ) : rows.length === 0 ? (
+          <div style={S.empty}>No PCRF sessions found</div>
+        ) : (
+          <table style={S.table}>
+            <thead>
+              <tr>{['IMSI', 'Serving PGW', 'Last PGW Contact'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} style={S.tableRow}>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 12 }}>{r.imsi}</td>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>{r.serving_pgw || '—'}</td>
+                  <td style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{fmtTs(r.serving_pgw_timestamp)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── GeoRed ───────────────────────────────────────────────────────────────────
+
+const GeoRed = ({ refreshTick }: { refreshTick: number }) => {
   const [peers, setPeers] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(false);
   const [enabled, setEnabled] = React.useState<boolean | null>(null);
 
-  const fetchPeers = () => {
+  const fetchPeers = React.useCallback(() => {
     setLoading(true);
     OamApi.georedPeers()
       .then(d => {
         const data = d.data;
-        if (data?.result === 'Failed') {
-          setEnabled(false);
-          setPeers(null);
-        } else {
-          setEnabled(true);
-          setPeers(data);
-        }
+        if (data?.result === 'Failed') { setEnabled(false); setPeers(null); }
+        else { setEnabled(true); setPeers(data); }
       })
       .catch(() => { setEnabled(false); setPeers(null); })
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  React.useEffect(() => { fetchPeers(); }, []);
+  React.useEffect(() => { fetchPeers(); }, [fetchPeers, refreshTick]);
 
   const renderPeers = () => {
     if (!peers) return null;
-    // peers could be an array or object — normalise to array of entries
     const rows: any[] = Array.isArray(peers) ? peers : Object.entries(peers).map(([k, v]) => ({ peer: k, ...(typeof v === 'object' ? v as any : { status: v }) }));
     if (rows.length === 0) return <div style={S.empty}>No GeoRed peers configured</div>;
     const cols = Array.from(new Set(rows.flatMap(r => Object.keys(r))));
     return (
       <table style={S.table}>
-        <thead>
-          <tr>{cols.map(c => <th key={c} style={S.th}>{c}</th>)}</tr>
-        </thead>
+        <thead><tr>{cols.map(c => <th key={c} style={S.th}>{c}</th>)}</tr></thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={i} style={S.tableRow}>
-              {cols.map(c => (
-                <td key={c} style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
-                  {String(r[c] ?? '—')}
-                </td>
-              ))}
+              {cols.map(c => <td key={c} style={{ ...S.td, fontFamily: 'var(--font-mono)', fontSize: '12px' }}>{String(r[c] ?? '—')}</td>)}
             </tr>
           ))}
         </tbody>
@@ -469,94 +613,13 @@ const GeoRed = () => {
             <i className="fas fa-exclamation-triangle" style={{ color: 'var(--accent-red)', marginRight: 8 }} />
             GeoRed is not enabled on this HSS
           </div>
-        ) : (
-          renderPeers()
-        )}
+        ) : renderPeers()}
       </div>
     </div>
   );
 };
 
-// ─── Reconcile / Deregister Section ──────────────────────────────────────────
-
-const ReconcileDeregister = () => {
-  const [imsi, setImsi] = React.useState('');
-  const [reconcileLoading, setReconcileLoading] = React.useState(false);
-  const [deregLoading, setDeregLoading] = React.useState(false);
-  const [reconcileResult, setReconcileResult] = React.useState<any>(null);
-  const [deregResult, setDeregResult] = React.useState<any>(null);
-
-  const doReconcile = () => {
-    const val = imsi.trim();
-    if (!val) { toast.warn('Enter an IMSI first'); return; }
-    setReconcileLoading(true);
-    setReconcileResult(null);
-    OamApi.reconcile(val)
-      .then(d => { setReconcileResult({ ok: true, data: d.data }); toast.success(`Reconcile complete for ${val}`); })
-      .catch(e => { setReconcileResult({ ok: false, data: e?.response?.data || 'Request failed' }); toast.error('Reconcile failed'); })
-      .finally(() => setReconcileLoading(false));
-  };
-
-  const doDeregister = () => {
-    const val = imsi.trim();
-    if (!val) { toast.warn('Enter an IMSI first'); return; }
-    if (!window.confirm(`Deregister IMSI ${val}?\n\nThis will force a session teardown.`)) return;
-    setDeregLoading(true);
-    setDeregResult(null);
-    OamApi.deregister(val)
-      .then(d => { setDeregResult({ ok: true, data: d.data }); toast.success(`Deregistered ${val}`); })
-      .catch(e => { setDeregResult({ ok: false, data: e?.response?.data || 'Request failed' }); toast.error('Deregister failed'); })
-      .finally(() => setDeregLoading(false));
-  };
-
-  const isLoading = reconcileLoading || deregLoading;
-
-  return (
-    <div style={S.section}>
-      <SectionHeader icon="fas fa-tools" title="Subscriber Tools" note="reconcile · deregister" />
-      <div style={S.card}>
-        <div style={{ marginBottom: 16 }}>
-          <label style={S.inputLabel}>IMSI</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              value={imsi}
-              onChange={e => setImsi(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && doReconcile()}
-              placeholder="e.g. 001010123456789"
-              style={S.input}
-            />
-            <button onClick={doReconcile} disabled={isLoading} style={{ ...S.btnSecondary, minWidth: 110, opacity: isLoading ? 0.6 : 1 }}>
-              {reconcileLoading
-                ? <><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 5 }} />Working…</>
-                : <><i className="fas fa-sync-alt" style={{ marginRight: 5 }} />Reconcile</>
-              }
-            </button>
-            <button onClick={doDeregister} disabled={isLoading} style={{ ...S.btnDanger, minWidth: 120, opacity: isLoading ? 0.6 : 1 }}>
-              {deregLoading
-                ? <><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 5 }} />Working…</>
-                : <><i className="fas fa-user-times" style={{ marginRight: 5 }} />Deregister</>
-              }
-            </button>
-          </div>
-          <div style={{ marginTop: 8, fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-            Reconcile re-syncs subscriber state from HSS. Deregister forces a session teardown.
-          </div>
-        </div>
-
-        {(reconcileResult || deregResult) && (
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const }}>
-            {reconcileResult && (
-              <ResultBox label="Reconcile Result" result={reconcileResult} onClear={() => setReconcileResult(null)} />
-            )}
-            {deregResult && (
-              <ResultBox label="Deregister Result" result={deregResult} onClear={() => setDeregResult(null)} />
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+// ─── Reconcile / Deregister ───────────────────────────────────────────────────
 
 const ResultBox = ({ label, result, onClear }: { label: string; result: { ok: boolean; data: any }; onClear: () => void }) => (
   <div style={{ flex: 1, minWidth: 260, background: 'var(--bg-base)', border: `1px solid ${result.ok ? 'rgba(0,230,118,0.2)' : 'rgba(255,71,87,0.2)'}`, borderRadius: 8, padding: '12px 14px' }}>
@@ -574,16 +637,89 @@ const ResultBox = ({ label, result, onClear }: { label: string; result: { ok: bo
   </div>
 );
 
+const ReconcileDeregister = () => {
+  const [imsi, setImsi] = React.useState('');
+  const [reconcileLoading, setReconcileLoading] = React.useState(false);
+  const [deregLoading, setDeregLoading] = React.useState(false);
+  const [reconcileResult, setReconcileResult] = React.useState<any>(null);
+  const [deregResult, setDeregResult] = React.useState<any>(null);
+
+  const doReconcile = () => {
+    const val = imsi.trim();
+    if (!val) { toast.warn('Enter an IMSI first'); return; }
+    setReconcileLoading(true); setReconcileResult(null);
+    OamApi.reconcile(val)
+      .then(d => { setReconcileResult({ ok: true, data: d.data }); toast.success(`Reconcile complete for ${val}`); })
+      .catch(e => { setReconcileResult({ ok: false, data: e?.response?.data || 'Request failed' }); toast.error('Reconcile failed'); })
+      .finally(() => setReconcileLoading(false));
+  };
+
+  const doDeregister = () => {
+    const val = imsi.trim();
+    if (!val) { toast.warn('Enter an IMSI first'); return; }
+    if (!window.confirm(`Deregister IMSI ${val}?\n\nThis will force a session teardown.`)) return;
+    setDeregLoading(true); setDeregResult(null);
+    OamApi.deregister(val)
+      .then(d => { setDeregResult({ ok: true, data: d.data }); toast.success(`Deregistered ${val}`); })
+      .catch(e => { setDeregResult({ ok: false, data: e?.response?.data || 'Request failed' }); toast.error('Deregister failed'); })
+      .finally(() => setDeregLoading(false));
+  };
+
+  const isLoading = reconcileLoading || deregLoading;
+
+  return (
+    <div style={S.section}>
+      <SectionHeader icon="fas fa-tools" title="Subscriber Tools" note="reconcile · deregister" />
+      <div style={S.card}>
+        <div style={{ marginBottom: 16 }}>
+          <label style={S.inputLabel}>IMSI</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={imsi} onChange={e => setImsi(e.target.value)} onKeyDown={e => e.key === 'Enter' && doReconcile()}
+              placeholder="e.g. 001010123456789" style={S.input} />
+            <button onClick={doReconcile} disabled={isLoading} style={{ ...S.btnSecondary, minWidth: 110, opacity: isLoading ? 0.6 : 1 }}>
+              {reconcileLoading ? <><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 5 }} />Working…</> : <><i className="fas fa-sync-alt" style={{ marginRight: 5 }} />Reconcile</>}
+            </button>
+            <button onClick={doDeregister} disabled={isLoading} style={{ ...S.btnDanger, minWidth: 120, opacity: isLoading ? 0.6 : 1 }}>
+              {deregLoading ? <><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 5 }} />Working…</> : <><i className="fas fa-user-times" style={{ marginRight: 5 }} />Deregister</>}
+            </button>
+          </div>
+          <div style={{ marginTop: 8, fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+            Reconcile re-syncs subscriber state from HSS. Deregister forces a session teardown.
+          </div>
+        </div>
+        {(reconcileResult || deregResult) && (
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const }}>
+            {reconcileResult && <ResultBox label="Reconcile Result" result={reconcileResult} onClear={() => setReconcileResult(null)} />}
+            {deregResult && <ResultBox label="Deregister Result" result={deregResult} onClear={() => setDeregResult(null)} />}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── Main OAM Page ────────────────────────────────────────────────────────────
 
 const Oam = () => {
+  const refreshInterval: number = useSelector((state: any) => state.ui.dashboardRefreshInterval) ?? 15;
+  const metricsEnabled: boolean = useSelector((state: any) => state.ui.metricsEnabled) ?? false;
+  const [refreshTick, setRefreshTick] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => setRefreshTick(t => t + 1), refreshInterval * 1000);
+    return () => clearInterval(timer);
+  }, [refreshInterval]);
+
   return (
     <div style={{ fontFamily: 'var(--font-ui)' }}>
       <ContentHeader title="OAM" />
       <div style={{ padding: '20px 0' }}>
-        <OperationLogs />
-        <DiameterPeers />
-        <GeoRed />
+        <OperationLogs refreshTick={refreshTick} />
+        <DiameterPeers refreshTick={refreshTick} metricsEnabled={metricsEnabled} />
+        {metricsEnabled && <AuthFailureDetail refreshTick={refreshTick} />}
+        <SubsSeen refreshTick={refreshTick} />
+        <PcrfSessions refreshTick={refreshTick} />
+        <GeoRed refreshTick={refreshTick} />
         <ReconcileDeregister />
       </div>
     </div>
@@ -595,133 +731,47 @@ export default Oam;
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const S: Record<string, React.CSSProperties> = {
-  section: {
-    marginBottom: 36,
-  },
+  section: { marginBottom: 36 },
   sectionHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    fontSize: '11px',
-    fontFamily: 'var(--font-mono)',
-    fontWeight: 600,
-    color: 'var(--text-secondary)',
-    letterSpacing: '0.1em',
-    textTransform: 'uppercase',
-    marginBottom: 12,
+    display: 'flex', alignItems: 'center', fontSize: '11px',
+    fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-secondary)',
+    letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12,
   },
-  sectionNote: {
-    marginLeft: 10,
-    fontSize: '10px',
-    color: 'var(--border-bright)',
-    fontWeight: 400,
-    letterSpacing: '0.05em',
-    textTransform: 'none',
-  },
-  tableCard: {
-    background: 'var(--bg-card)',
-    border: '1px solid #1e2d45',
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  card: {
-    background: 'var(--bg-card)',
-    border: '1px solid #1e2d45',
-    borderRadius: 10,
-    padding: '18px 20px',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '13px',
-  },
+  sectionNote: { marginLeft: 10, fontSize: '10px', color: 'var(--border-bright)', fontWeight: 400, letterSpacing: '0.05em', textTransform: 'none' },
+  tableCard: { background: 'var(--bg-card)', border: '1px solid #1e2d45', borderRadius: 10, overflow: 'hidden', marginBottom: 4 },
+  card: { background: 'var(--bg-card)', border: '1px solid #1e2d45', borderRadius: 10, padding: '18px 20px' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: '13px' },
   th: {
-    padding: '10px 14px',
-    textAlign: 'left',
-    fontSize: '10px',
-    fontFamily: 'var(--font-mono)',
-    fontWeight: 600,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: 'var(--text-muted)',
-    background: 'var(--bg-surface)',
-    borderBottom: '1px solid #1e2d45',
-    whiteSpace: 'nowrap',
+    padding: '10px 14px', textAlign: 'left', fontSize: '10px',
+    fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.08em',
+    textTransform: 'uppercase', color: 'var(--text-muted)',
+    background: 'var(--bg-surface)', borderBottom: '1px solid #1e2d45', whiteSpace: 'nowrap',
   },
-  td: {
-    padding: '10px 14px',
-    color: 'var(--text-primary)',
-    fontSize: '13px',
-    verticalAlign: 'middle',
-  },
-  tableRow: {
-    borderBottom: '1px solid #111a2a',
-    transition: 'background 0.1s ease',
-  },
-  empty: {
-    padding: '32px 20px',
-    textAlign: 'center',
-    fontSize: '12px',
-    fontFamily: 'var(--font-mono)',
-    color: 'var(--text-muted)',
-  },
+  td: { padding: '10px 14px', color: 'var(--text-primary)', fontSize: '13px', verticalAlign: 'middle' },
+  tableRow: { borderBottom: '1px solid #111a2a', transition: 'background 0.1s ease' },
+  empty: { padding: '32px 20px', textAlign: 'center', fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' },
   filterSelect: {
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border-bright)',
-    borderRadius: 5,
-    color: 'var(--text-secondary)',
-    fontFamily: 'var(--font-mono)',
-    fontSize: '11px',
-    padding: '4px 8px',
-    cursor: 'pointer',
+    background: 'var(--bg-surface)', border: '1px solid var(--border-bright)', borderRadius: 5,
+    color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '11px', padding: '4px 8px', cursor: 'pointer',
   },
   input: {
-    flex: 1,
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border-bright)',
-    borderRadius: 6,
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-mono)',
-    fontSize: '13px',
-    padding: '8px 12px',
-    outline: 'none',
+    flex: 1, background: 'var(--bg-surface)', border: '1px solid var(--border-bright)', borderRadius: 6,
+    color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '8px 12px', outline: 'none',
   },
   inputLabel: {
-    display: 'block',
-    fontSize: '10px',
-    fontFamily: 'var(--font-mono)',
-    fontWeight: 600,
-    letterSpacing: '0.1em',
-    textTransform: 'uppercase',
-    color: 'var(--text-muted)',
-    marginBottom: 8,
+    display: 'block', fontSize: '10px', fontFamily: 'var(--font-mono)', fontWeight: 600,
+    letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8,
   },
   btnSecondary: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '6px 14px',
-    background: 'rgba(0,200,255,0.08)',
-    border: '1px solid rgba(0,200,255,0.2)',
-    borderRadius: 6,
-    color: 'var(--accent)',
-    fontFamily: 'var(--font-mono)',
-    fontSize: '11px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
+    display: 'inline-flex', alignItems: 'center', padding: '6px 14px',
+    background: 'rgba(0,200,255,0.08)', border: '1px solid rgba(0,200,255,0.2)',
+    borderRadius: 6, color: 'var(--accent)', fontFamily: 'var(--font-mono)',
+    fontSize: '11px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
   },
   btnDanger: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '6px 14px',
-    background: 'rgba(255,71,87,0.08)',
-    border: '1px solid rgba(255,71,87,0.25)',
-    borderRadius: 6,
-    color: 'var(--accent-red)',
-    fontFamily: 'var(--font-mono)',
-    fontSize: '11px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
+    display: 'inline-flex', alignItems: 'center', padding: '6px 14px',
+    background: 'rgba(255,71,87,0.08)', border: '1px solid rgba(255,71,87,0.25)',
+    borderRadius: 6, color: 'var(--accent-red)', fontFamily: 'var(--font-mono)',
+    fontSize: '11px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
   },
 };

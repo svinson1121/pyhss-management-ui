@@ -5,27 +5,7 @@ import { ContentHeader } from '@components';
 import i18n from '@app/utils/i18n';
 import { OamApi, SubscriberApi, AucApi, ImsSubscriberApi } from '../services/pyhss';
 
-interface DiameterPeer {
-  IpAddress: string;
-  Port: string;
-  Hostname: string;
-  Connected: boolean;
-  LastConnectTimestamp: string;
-  LastDisconnectTimestamp: string;
-  ReconnectionCount: number;
-  Metadata: string;
-  [key: string]: any;
-}
 
-interface GroupedPeer {
-  hostname: string;
-  ipAddress: string;
-  peerType: string;
-  connections: number;
-  connectedCount: number;
-  lastConnect: string;
-  reconnections: number;
-}
 
 interface StatCardProps {
   value: string | number;
@@ -64,71 +44,139 @@ const StatCard = ({ value, label, sublabel, to, color, icon, error }: StatCardPr
   ) : card;
 };
 
-const getPeerType = (metadata: string): string => {
-  try {
-    const m = JSON.parse(metadata);
-    return m.DiameterPeerType || '—';
-  } catch { return '—'; }
+
+// ── Prometheus / PromQL helpers ───────────────────────────────────────────────
+interface PromResult {
+  metric: Record<string, string>;
+  value: [number, string];
+}
+
+const promQuery = async (baseUrl: string, query: string): Promise<PromResult[]> => {
+  const url = `${baseUrl.replace(/\/$/, '')}/api/v1/query?query=${encodeURIComponent(query)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const j = await r.json();
+  if (j.status !== 'success') throw new Error(j.error || 'PromQL error');
+  return j.data?.result ?? [];
 };
 
-const groupPeers = (peers: DiameterPeer[]): GroupedPeer[] => {
-  const map = new Map<string, GroupedPeer>();
-  for (const p of peers) {
-    const key = p.Hostname;
-    if (!map.has(key)) {
-      map.set(key, {
-        hostname: p.Hostname,
-        ipAddress: p.IpAddress,
-        peerType: getPeerType(p.Metadata),
-        connections: 0,
-        connectedCount: 0,
-        lastConnect: p.LastConnectTimestamp,
-        reconnections: 0,
-      });
-    }
-    const g = map.get(key)!;
-    g.connections += 1;
-    if (p.Connected) g.connectedCount += 1;
-    g.reconnections += p.ReconnectionCount || 0;
-    if (p.LastConnectTimestamp > g.lastConnect) g.lastConnect = p.LastConnectTimestamp;
-  }
-  return Array.from(map.values()).sort((a, b) => b.connectedCount - a.connectedCount);
-};
+// ── Diameter Metrics Section ──────────────────────────────────────────────────
+const DiameterMetrics = ({ refreshTick, metricsEnabled }: { refreshTick: number; metricsEnabled: boolean }) => {
+  const [data, setData] = React.useState<{
+    reqCount: PromResult[];
+    respCount: PromResult[];
+    authEvents: PromResult[];
+    hostReqs: PromResult[];
+    hostResps: PromResult[];
+  } | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const prometheusUrl = localStorage.getItem('metricsUrl') || '';
 
-const peerTypeColor: Record<string, string> = {
-  pcscf: 'var(--accent)',
-  scscf: '#a78bfa',
-  icscf: 'var(--accent-amber)',
-  dra:   'var(--accent-green)',
-};
+  React.useEffect(() => {
+    if (!prometheusUrl || !metricsEnabled) return;
+    setError(null);
+    setLoading(true);
+    Promise.all([
+      promQuery(prometheusUrl, 'prom_diam_request_count{benchmark_interval="3600"}'),
+      promQuery(prometheusUrl, 'prom_diam_response_count{benchmark_interval="3600"}'),
+      promQuery(prometheusUrl, 'prom_diam_auth_event_count_total'),
+      promQuery(prometheusUrl, 'prom_diam_request_count_host'),
+      promQuery(prometheusUrl, 'prom_diam_response_count_host'),
+    ])
+      .then(([reqCount, respCount, authEvents, hostReqs, hostResps]) => {
+        setData({ reqCount, respCount, authEvents, hostReqs, hostResps });
+        setLoading(false);
+      })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, [prometheusUrl, metricsEnabled, refreshTick]);
 
-const PeerRow = ({ peer }: { peer: GroupedPeer }) => {
-  const up = peer.connectedCount > 0;
-  const color = peerTypeColor[peer.peerType] || 'var(--text-secondary)';
-  const ts = peer.lastConnect?.replace('T', ' ').split('.')[0] || '—';
+  if (!prometheusUrl || !metricsEnabled) return null;
+
+  if (error) return (
+    <>
+      <div style={S.sectionLabel}>
+        <i className="fas fa-chart-bar" style={{ marginRight: 8, color: 'var(--text-muted)' }} />
+        Diameter Metrics
+      </div>
+      <div style={{ ...S.tableCard, marginBottom: 32 }}>
+        <div style={S.empty}>
+          <i className="fas fa-exclamation-triangle" style={{ color: 'var(--accent-red)', marginRight: 8 }} />
+          Could not reach Prometheus — {error}
+        </div>
+      </div>
+    </>
+  );
+
+  if (loading || !data) return (
+    <>
+      <div style={S.sectionLabel}>
+        <i className="fas fa-chart-bar" style={{ marginRight: 8, color: 'var(--text-muted)' }} />
+        Diameter Metrics
+      </div>
+      <div style={{ ...S.tableCard, marginBottom: 32 }}>
+        <div style={S.empty}><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 8 }} />Querying Prometheus…</div>
+      </div>
+    </>
+  );
+
+  const totalReqs  = data.reqCount[0]  ? parseFloat(data.reqCount[0].value[1])  : null;
+  const totalResps = data.respCount[0] ? parseFloat(data.respCount[0].value[1]) : null;
+  const reqPerSec  = totalReqs  !== null ? (totalReqs  / 3600).toFixed(2) : '—';
+  const respPerSec = totalResps !== null ? (totalResps / 3600).toFixed(2) : '—';
+  const totalAuthFails = data.authEvents.reduce((a, r) => a + parseFloat(r.value[1]), 0);
+
   return (
-    <tr style={S.tableRow}>
-      <td style={S.tdStatus}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontFamily: "'IBM Plex Mono', monospace", color: up ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: up ? 'var(--accent-green)' : 'var(--accent-red)', boxShadow: up ? '0 0 5px rgba(0,230,118,0.7)' : '0 0 5px rgba(255,71,87,0.5)' }} />
-          {up ? 'UP' : 'DOWN'}
-        </span>
-      </td>
-      <td style={S.td}>
-        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', color: 'var(--text-primary)' }}>{peer.hostname}</span>
-        <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px', fontFamily: "'IBM Plex Mono', monospace" }}>{peer.ipAddress}</span>
-      </td>
-      <td style={S.td}>
-        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', background: `${color}18`, color, border: `1px solid ${color}30` }}>
-          {peer.peerType}
-        </span>
-      </td>
-      <td style={{ ...S.td, fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px' }}>
-        <span style={{ color: up ? 'var(--accent-green)' : 'var(--text-muted)' }}>{peer.connectedCount}</span>
-        <span style={{ color: 'var(--border-bright)' }}> / {peer.connections}</span>
-      </td>
-      <td style={{ ...S.td, color: 'var(--text-muted)', fontSize: '11px', fontFamily: "'IBM Plex Mono', monospace" }}>{ts}</td>
-    </tr>
+    <>
+      <div style={S.sectionLabel}>
+        <i className="fas fa-chart-bar" style={{ marginRight: 8, color: 'var(--text-muted)' }} />
+        Diameter Metrics
+      </div>
+
+      {/* Throughput cards */}
+      <div style={{ ...S.grid, marginBottom: 28 }}>
+        <div style={{ ...S.card, borderLeftColor: 'var(--accent)' }}>
+          <div style={S.cardTop}>
+            <div style={{ flex: 1 }}>
+              <div style={{ ...S.cardValue, color: 'var(--accent)' }}>{reqPerSec}</div>
+              <div style={S.cardLabel}>Requests / sec</div>
+              <div style={S.cardSub}>avg over 3600s · total {totalReqs?.toLocaleString() ?? '—'}</div>
+            </div>
+            <div style={{ ...S.cardIcon, color: 'var(--accent)', background: 'rgba(0,200,255,0.08)' }}>
+              <i className="fas fa-arrow-down" />
+            </div>
+          </div>
+        </div>
+        <div style={{ ...S.card, borderLeftColor: 'var(--accent-green)' }}>
+          <div style={S.cardTop}>
+            <div style={{ flex: 1 }}>
+              <div style={{ ...S.cardValue, color: 'var(--accent-green)' }}>{respPerSec}</div>
+              <div style={S.cardLabel}>Responses / sec</div>
+              <div style={S.cardSub}>avg over 3600s · total {totalResps?.toLocaleString() ?? '—'}</div>
+            </div>
+            <div style={{ ...S.cardIcon, color: 'var(--accent-green)', background: 'rgba(0,230,118,0.08)' }}>
+              <i className="fas fa-arrow-up" />
+            </div>
+          </div>
+        </div>
+        {data.authEvents.length > 0 && (
+          <NavLink to="/oam" style={{ textDecoration: 'none', display: 'block' }}>
+            <div style={{ ...S.card, borderLeftColor: 'var(--accent-red)' }}>
+              <div style={S.cardTop}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ ...S.cardValue, color: 'var(--accent-red)' }}>{totalAuthFails}</div>
+                  <div style={S.cardLabel}>Auth Failures</div>
+                  <div style={S.cardSub}>view breakdown on OAM page</div>
+                </div>
+                <div style={{ ...S.cardIcon, color: 'var(--accent-red)', background: 'rgba(255,71,87,0.08)' }}>
+                  <i className="fas fa-user-slash" />
+                </div>
+              </div>
+            </div>
+          </NavLink>
+        )}
+      </div>
+    </>
   );
 };
 
@@ -136,13 +184,11 @@ const Dashboard = () => {
   const [totalSubs, setTotalSubs] = React.useState('—');
   const [totalAuc, setTotalAuc] = React.useState('—');
   const [totalIms, setTotalIms] = React.useState('—');
-  const [activeSubs, setActiveSubs] = React.useState('—');
   const [activeIms, setActiveIms] = React.useState('—');
-  const [activePcrf, setActivePcrf] = React.useState('—');
-  const [peers, setPeers] = React.useState<DiameterPeer[]>([]);
-  const [peersError, setPeersError] = React.useState(false);
+  const [peersUp, setPeersUp] = React.useState('—');
   const [lastUpdated, setLastUpdated] = React.useState('');
   const [apiOnline, setApiOnline] = React.useState<boolean | null>(null);
+  const [refreshTick, setRefreshTick] = React.useState(0);
 
   const fetchInventory = () => {
     SubscriberApi.getAll().then(d => setTotalSubs(String(d.data?.length ?? 0))).catch(() => setTotalSubs('—'));
@@ -152,17 +198,18 @@ const Dashboard = () => {
 
   const fetchLive = () => {
     setLastUpdated(new Date().toLocaleTimeString());
+    setRefreshTick(t => t + 1);
 
     OamApi.ping().then(() => setApiOnline(true)).catch(() => setApiOnline(false));
 
-    OamApi.servingSubs()
+    OamApi.diameterPeers()
       .then(d => {
-        const entries = Object.values(d.data ?? {}) as any[];
-        const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24h window
-        const active = entries.filter(s => s.serving_mme_timestamp && new Date(s.serving_mme_timestamp).getTime() > cutoff);
-        setActiveSubs(String(active.length));
+        const raw = d.data ?? {};
+        const list: any[] = Array.isArray(raw) ? raw : Object.values(raw);
+        setPeersUp(String(list.length));
       })
-      .catch(() => setActiveSubs('—'));
+      .catch(() => setPeersUp('—'));
+
 
     OamApi.servingSubsIms()
       .then(d => {
@@ -176,25 +223,11 @@ const Dashboard = () => {
       })
       .catch(() => setActiveIms('—'));
 
-    OamApi.servingSubsPcrf()
-      .then(d => {
-        const entries = Object.values(d.data ?? {}) as any[];
-        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-        const active = entries.filter(s => s.serving_pgw_timestamp && new Date(s.serving_pgw_timestamp).getTime() > cutoff);
-        setActivePcrf(String(active.length));
-      })
-      .catch(() => setActivePcrf('—'));
 
-    OamApi.diameterPeers()
-      .then(d => {
-        const raw = d.data ?? {};
-        setPeers(Array.isArray(raw) ? raw : Object.values(raw));
-        setPeersError(false);
-      })
-      .catch(() => { setPeers([]); setPeersError(true); });
   };
 
   const refreshInterval: number = useSelector((state: any) => state.ui.dashboardRefreshInterval) ?? 15;
+  const metricsEnabled: boolean = useSelector((state: any) => state.ui.metricsEnabled) ?? true;
 
   React.useEffect(() => {
     fetchInventory();
@@ -204,8 +237,6 @@ const Dashboard = () => {
     return () => { clearInterval(live); clearInterval(inv); };
   }, [refreshInterval]);
 
-  const connectedPeers = peers.filter(p => p.Connected).length;
-  const groupedPeers = groupPeers(peers);
 
   return (
     <div style={S.page}>
@@ -225,7 +256,7 @@ const Dashboard = () => {
         <div style={S.sectionLabel}>
           <i className="fas fa-database" style={{ marginRight: 8, color: 'var(--text-muted)' }} />
           Provisioned Inventory
-          <span style={S.sectionNote}>database totals · refreshes every 60s</span>
+          
         </div>
         <div style={{ ...S.grid, marginBottom: '28px' }}>
           <StatCard value={totalSubs} label="Subscribers" sublabel="Total provisioned in DB" to="/subscriber" color="#00c8ff" icon="fas fa-users" />
@@ -237,51 +268,22 @@ const Dashboard = () => {
         <div style={S.sectionLabel}>
           <i className="fas fa-broadcast-tower" style={{ marginRight: 8, color: 'var(--text-muted)' }} />
           Live Session State
-          <span style={S.sectionNote}>OAM counters · refreshes every 15s</span>
+          
         </div>
         <div style={{ ...S.grid, marginBottom: '32px' }}>
-          <StatCard value={activeSubs} label="Subs Seen (24h)" sublabel="subs with MME contact in last 24h" color="#00e676" icon="fas fa-signal" />
-          <StatCard value={activePcrf} label="PCRF Sessions" sublabel="serving_subs_pcrf — active Gx within 24h" color="#00c8ff" icon="fas fa-network-wired" />
-          <StatCard value={activeIms} label="IMS Registered" sublabel="serving_subs_ims — IMS registration within 24h" color="#fbbf24" icon="fas fa-phone" />
+          <StatCard value={activeIms} label="IMS Registered" sublabel="IMS registrations · live OAM state" color="#fbbf24" icon="fas fa-phone" />
           <StatCard
-            value={peersError ? 'ERR' : String(connectedPeers)}
-            label="Diameter Peers Up"
-            sublabel={peersError ? 'Could not reach OAM' : `${peers.length} connections · ${groupedPeers.length} hosts`}
+            value={peersUp}
+            label="Diameter Peers"
+            sublabel="active peers · click to view on OAM"
+            to="/oam"
             color="#00e676"
             icon="fas fa-project-diagram"
-            error={peersError}
           />
         </div>
 
-        {/* Diameter Peers Table */}
-        <div style={S.sectionLabel}>
-          <i className="fas fa-project-diagram" style={{ marginRight: 8, color: 'var(--text-muted)' }} />
-          Diameter Peers
-          <span style={S.sectionNote}>live connection state</span>
-        </div>
-        <div style={S.tableCard}>
-          {peers.length === 0 ? (
-            <div style={S.empty}>
-              {peersError
-                ? <><i className="fas fa-exclamation-triangle" style={{ color: 'var(--accent-red)', marginRight: 8 }} />Could not reach OAM endpoint</>
-                : <><i className="fas fa-circle-notch fa-spin" style={{ color: 'var(--text-muted)', marginRight: 8 }} />No peers reported</>
-              }
-            </div>
-          ) : (
-            <table style={S.table}>
-              <thead>
-                <tr>
-                  {['Status', 'Hostname / IP', 'Type', 'Connections', 'Last Connect'].map(h => (
-                    <th key={h} style={S.th}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {groupedPeers.map((peer, i) => <PeerRow key={i} peer={peer} />)}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {/* Diameter Metrics */}
+        <DiameterMetrics refreshTick={refreshTick} metricsEnabled={metricsEnabled} />
 
       </div>
     </div>
